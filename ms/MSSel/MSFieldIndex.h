@@ -108,6 +108,7 @@ public:
   // Look up FIELD_ID's for a given source id
   Vector<Int> matchSourceId(const Int& sourceId);
   Vector<Int> matchSourceId(const Vector<Int>& sourceIds);
+  void matchIdAgainstNames(Vector<Int>& ids);
   Vector<Int> validateIndices(const Vector<Int>& sourceIds);
 
   // Add for field code selection
@@ -123,7 +124,7 @@ private:
   MSFieldIndex();
 
   // FIELD subtable column accessor
-  ROMSFieldColumns msFieldCols_p;
+  MSFieldColumns msFieldCols_p;
 
   // Vector cache of field id's
   Vector<Int> fieldIds_p;

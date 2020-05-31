@@ -84,7 +84,7 @@ int checkScaInt (const String& func, const String& arg, Int expResult)
   try {
     TaQLResult result = tableCommand (comm);
     TableExprNode node = result.node();
-    if (node.dataType() != TpInt) {
+    if (node.dataType() != TpInt64) {
       cout << "Int error in evaluating: " + comm << endl;
       cout << " expected data type Int, found "
            << ValType::getTypeStr(node.dataType()) << endl;
@@ -259,7 +259,7 @@ int checkArrInt (const String& func, const String& arg, const String& expResult)
     TableExprNode node1 = result1.node();
     TaQLResult result2 = tableCommand (comm2);
     TableExprNode node2 = result2.node();
-    if (node1.dataType() != TpInt) {
+    if (node1.dataType() != TpInt64) {
       cout << "Int Array error in evaluating: " + comm1 << endl;
       cout << " expected data type Int, found "
            << ValType::getTypeStr(node1.dataType()) << endl;
@@ -598,6 +598,8 @@ int testScaDouble()
   nfail += checkScaDouble ("iif", "F, 2, 3.1", 3.1);
   nfail += checkScaDouble ("angdist", "[[34.3deg, 45deg]], [34.2deg, 47deg]", 0.0349276, "rad");
   nfail += checkScaDouble ("angdistx", "[325.7deg, -45deg], [-34.2deg, -47deg]", 0.0349276, "rad");
+  nfail += checkScaDouble ("normangle", "325.7deg", -0.598648, "rad");
+  nfail += checkScaDouble ("normangle", "3", 3.0, "rad");
   nfail += checkScaDouble ("variance", "[1,2]", 0.25);
   nfail += checkScaDouble ("stddev", "[1,2.]", sqrt(0.25));
   nfail += checkScaDouble ("variance", "[1+1i,2+3i]", 1.25);
@@ -627,6 +629,9 @@ int testScaDComplex()
   nfail += checkScaDComplex ("cube", "1.4+1i", DComplex(1.4,1)*DComplex(1.4,1)*DComplex(1.4,1));
   nfail += checkScaDComplex ("min", "-1.4+1i, -5+8i", DComplex(-1.4,1));
   nfail += checkScaDComplex ("max", "-1.4+1i, -5+8i", DComplex(-5,8));
+  nfail += checkScaDouble ("norm", "-5+8i", norm(DComplex(-5,8)));
+  nfail += checkScaDouble ("abs", "-5+8i", abs(DComplex(-5,8)));
+  nfail += checkScaDouble ("arg", "-5+8i", arg(DComplex(-5,8)), "rad");
   nfail += checkScaDComplex ("complex", "-1.4,1", DComplex(-1.4,1));
   nfail += checkScaDComplex ("complex", "'-1.4+10j'", DComplex(-1.4,10));
   nfail += checkScaDComplex ("complex", "'-1.4'", DComplex(-1.4,0));
@@ -739,8 +744,8 @@ int testScaString()
   nfail += checkScaString ("str", "3h2m4.36, 'ANGLE|10'", "+045.31.05.4000");
   nfail += checkScaString ("str", "11sep18/3h2m4.36, 'dmy|USE_SPACE'", "11-Sep-2018 03:02:04");
   nfail += checkScaString ("str", "11sep18 3h2m4.36, 'yMD|no_time'", "2018/09/11");
-  nfail += checkScaString ("str", "11sep18 3h2m4.36, 'FITS'", "2018-09-11T03:02:04");
-  nfail += checkScaString ("str", "11sep18 3h2m4.36, 'FITS|9'", "2018-09-11T03:02:04.360");
+  nfail += checkScaString ("str", "11sep18T3h2m4.36Z, 'FITS'", "2018-09-11T03:02:04");
+  nfail += checkScaString ("str", "11sep18 3h2m4.36, 'ISO|9'", "2018-09-11T03:02:04.360Z");
   nfail += checkScaString ("hms", "3h2m4.16", "03h02m04.160");
   nfail += checkScaString ("dms", "3h2m4.16", "+045d31m02.400");
   nfail += checkScaString ("iif", "T, 'abc', '1234'", "abc");
@@ -892,6 +897,9 @@ int testArrDouble()
                            "[0.200206,0.0738066154]");
   nfail += checkArrDouble ("angdistx", "[34.3deg, 45deg, 34.2deg,45deg], [0.5,0.6,0.7,0.8]",
                            "[[0.2002061307,0.1997055276],[0.0726069829,0.0738066154]]");
+  nfail += checkArrDouble ("normangle", "[-12:12:2]",
+                           "[0.5663706,2.5663706,-1.7168147, 0.2831853,2.2831853,-2.0000000,"
+                           "0.0000000, 2.0000000,-2.2831853,-0.2831853,1.7168147,-2.5663706]");
   return nfail;
 }
 

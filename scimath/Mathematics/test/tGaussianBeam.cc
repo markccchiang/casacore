@@ -69,7 +69,7 @@ int main() {
             GaussianBeam beam3(majAx, minAx, pa);
 
         }
-        catch (AipsError x) {
+        catch (AipsError& x) {
             cout << "Exception thrown as expected: " << x.getMesg() << endl;
             except = True;
         }
@@ -81,7 +81,7 @@ int main() {
             GaussianBeam beam3(majAx, minAx, pa);
 
         }
-        catch (AipsError x) {
+        catch (AipsError& x) {
             cout << "Exception thrown as expected: " << x.getMesg() << endl;
             except = True;
         }
@@ -97,7 +97,7 @@ int main() {
             // bogus units
             beam.getArea("arcsec");
         }
-        catch (AipsError x) {
+        catch (AipsError& x) {
             cout << "Exception thrown as expected: " << x.getMesg() << endl;
             except = True;
         }
@@ -114,7 +114,7 @@ int main() {
             beam2 = GaussianBeam::fromRecord(rec);
 
         }
-        catch (AipsError x) {
+        catch (AipsError& x) {
             cout << "Exception thrown as expected: " << x.getMesg() << endl;
             except = True;
         }
@@ -143,8 +143,76 @@ int main() {
                 AlwaysAssert(beam.getPA(False).getValue("deg") == u, AipsError);
             }
         }
+        {
+            cout << "Test NaN and Inf throw exceptions" << endl;
+            static const Quantity inf(doubleInf(), "arcsec");
+            static const Quantity nan(doubleNaN(), "arcsec");
+            static const Quantity qok(2, "arcsec");
+            try {
+                GaussianBeam badBeam(inf, qok, qok);
+                AlwaysAssert(False, AipsError);
+            }
+            catch (const AipsError& x) {}
+            try {
+                GaussianBeam badBeam(nan, qok, qok);
+                AlwaysAssert(False, AipsError);
+            }
+            catch (const AipsError& x) {}
+            try {
+                GaussianBeam badBeam(qok, inf, qok);
+                AlwaysAssert(False, AipsError);
+            }
+            catch (const AipsError& x) {}
+            try {
+                GaussianBeam badBeam(qok, nan, qok);
+                AlwaysAssert(False, AipsError);
+            }
+            catch (const AipsError& x) {}
+            try {
+                GaussianBeam badBeam(qok, qok, inf);
+                AlwaysAssert(False, AipsError);
+            }
+            catch (const AipsError& x) {}
+            try {
+                GaussianBeam badBeam(qok, qok, nan);
+                AlwaysAssert(False, AipsError);
+            }
+            catch (const AipsError& x) {}
+            GaussianBeam bok(qok, qok, qok);
+            try {
+                bok.setMajorMinor(inf, qok);
+                AlwaysAssert(False, AipsError);
+            }
+            catch (const AipsError& x) {}
+            try {
+                bok.setMajorMinor(nan, qok);
+                AlwaysAssert(False, AipsError);
+            }
+            catch (const AipsError& x) {}
+            try {
+                bok.setMajorMinor(qok, inf);
+                AlwaysAssert(False, AipsError);
+            }
+            catch (const AipsError& x) {}
+            try {
+                bok.setMajorMinor(qok, nan);
+                AlwaysAssert(False, AipsError);
+            }
+            catch (const AipsError& x) {}
+            try {
+                bok.setPA(inf);
+                AlwaysAssert(False, AipsError);
+            }
+            catch (const AipsError& x) {}
+            try {
+                bok.setPA(nan);
+                AlwaysAssert(False, AipsError);
+            }
+            catch (const AipsError& x) {}
+
+        }
     }
-    catch (AipsError x) {
+    catch (const AipsError& x) {
         cout << x.getMesg() << endl;
         cout << "FAIL" << endl;
         return 1;

@@ -157,8 +157,8 @@ Bool FITSIDItoMS1::firstSyscal = True; // initialize the class variable firstSys
 Bool FITSIDItoMS1::firstWeather = True; // initialize the class variable firstWeather
 Double FITSIDItoMS1::rdate = 0.; // initialize the class variable rdate
 String FITSIDItoMS1::array_p = ""; // initialize the class variable array_p
-SimpleOrderedMap<Int,Int> FITSIDItoMS1::antIdFromNo(-1); // initialize the class variable antIdFromNo
-SimpleOrderedMap<Int,Int> FITSIDItoMS1::digiLevels(0); // initialize the class variable digiLevels
+std::map<Int,Int> FITSIDItoMS1::antIdFromNo; // initialize the class variable antIdFromNo
+std::map<Int,Int> FITSIDItoMS1::digiLevels; // initialize the class variable digiLevels
 Vector<Double> FITSIDItoMS1::effChBw;
 
 //	
@@ -2009,15 +2009,15 @@ void FITSIDItoMS1::fillMSMainTable(const String& MSFileName, Int& nField, Int& n
     Int array = Int(100.0*(baseline - Int(baseline)+0.001));
     Int ant1 = Int(baseline)/256; 
     Int ant2 = Int(baseline) - ant1*256; 
-    if(antIdFromNo.isDefined(ant1)){
-    	ant1 = antIdFromNo(ant1);
+    if(antIdFromNo.find(ant1) != antIdFromNo.end()){
+    	ant1 = antIdFromNo[ant1];
     }
     else{
     	*itsLog << LogIO::SEVERE << "Inconsistent input dataset: unknown ANTENNA_NO "
     			<< ant1 << " in baseline used in UV_DATA table." << LogIO::EXCEPTION;
     }
-    if(antIdFromNo.isDefined(ant2)){
-    	ant2 = antIdFromNo(ant2);
+    if(antIdFromNo.find(ant2) != antIdFromNo.end()){
+    	ant2 = antIdFromNo[ant2];
     }
     else{
     	*itsLog << LogIO::SEVERE << "Inconsistent input dataset: unknown ANTENNA_NO "
@@ -2141,18 +2141,18 @@ void FITSIDItoMS1::fillMSMainTable(const String& MSFileName, Int& nField, Int& n
 	Double Rm, gamma, alfa;
 	Double (*rho)(Double) = NULL;
 
-	if (digiLevels(ant1) == 4 && digiLevels(ant2) == 4) {
+	if (digiLevels[ant1] == 4 && digiLevels[ant2] == 4) {
 	  Rm = 4.3048;
 	  alfa = 0.882518;
 	  gamma = 3.335875 * 64.0 / 63.0;
 	  rho = rho_4;
-	} else if (digiLevels(ant1) == 2 && digiLevels(ant2) == 2) {
+	} else if (digiLevels[ant1] == 2 && digiLevels[ant2] == 2) {
 	  Rm = 1.0;
 	  alfa = 2.0 / C::pi;
 	  gamma = 1.0 * 64.0 / 63.0;
 	  rho = rho_2;
-	} else if ((digiLevels(ant1) == 2 && digiLevels(ant2) == 4) ||
-		   (digiLevels(ant1) == 4 && digiLevels(ant2) == 2)) {
+	} else if ((digiLevels[ant1] == 2 && digiLevels[ant2] == 4) ||
+		   (digiLevels[ant1] == 4 && digiLevels[ant2] == 2)) {
 	  Rm = 5.8784;
 	  alfa = 0.882518;
 	  gamma = 3.335875 * 64.0 / 63.0;
@@ -2485,15 +2485,15 @@ void FITSIDItoMS1::fillAntennaTable()
    Table anTab=oldfullTable("");
 
    MSAntennaColumns& ant(msc_p->antenna());
-   ROScalarColumn<String> name(anTab,"ANNAME");
-   ROArrayColumn<Double> antXYZ(anTab,"STABXYZ");
-   ROArrayColumn<Float> dantXYZ(anTab,"DERXYZ");
+   ScalarColumn<String> name(anTab,"ANNAME");
+   ArrayColumn<Double> antXYZ(anTab,"STABXYZ");
+   ArrayColumn<Float> dantXYZ(anTab,"DERXYZ");
    // following is for space-born telescope
-   //ROScalarColumn<Int> orbp(anTab,"ORBPARM");
-   ROScalarColumn<Int> anNo(anTab,"NOSTA");
-   ROScalarColumn<Int> mntid(anTab,"MNTSTA");
-   ROArrayColumn<Float> offset(anTab,"STAXOF");
-   ROScalarColumn<Float> diam;
+   //ScalarColumn<Int> orbp(anTab,"ORBPARM");
+   ScalarColumn<Int> anNo(anTab,"NOSTA");
+   ScalarColumn<Int> mntid(anTab,"MNTSTA");
+   ArrayColumn<Float> offset(anTab,"STAXOF");
+   ScalarColumn<Float> diam;
    if(anTab.tableDesc().isColumn("DIAMETER")){
      diam.attach(anTab,"DIAMETER"); // this column is optional
    }
@@ -2513,9 +2513,10 @@ void FITSIDItoMS1::fillAntennaTable()
    // continue definition of antenna number to antenna id mapping 
    for (Int inRow=0; inRow<nAnt; inRow++) {
      Int ii = anNo(inRow);
-     if(!antIdFromNo.isDefined(ii)){
-       antIdFromNo.define(ii, antIdFromNo.ndefined()); // append assuming uniqueness
-       *itsLog << LogIO::NORMAL << "   antenna_no " << ii << " -> antenna ID " << antIdFromNo(ii) << endl;
+     if(antIdFromNo.find(ii) == antIdFromNo.end()){
+       Int sz = antIdFromNo.size();
+       antIdFromNo[ii] = sz; // append assuming uniqueness
+       *itsLog << LogIO::NORMAL << "   antenna_no " << ii << " -> antenna ID " << antIdFromNo[ii] << endl;
      }
    }
 
@@ -2523,13 +2524,13 @@ void FITSIDItoMS1::fillAntennaTable()
    ant.setPositionRef(MPosition::ITRF);
 
    // take into account that the ANTENNA table may already contain rows 
-   Int newRows = antIdFromNo.ndefined() - ms_p.antenna().nrow();
+   Int newRows = antIdFromNo.size() - ms_p.antenna().nrow();
    ms_p.antenna().addRow(newRows);
 
    Int row=0;
    for (Int i=0; i<newRows; i++) {
      
-     row = antIdFromNo(anNo(i));
+     row = antIdFromNo[anNo(i)];
 
      if(diam.isNull()){ // no DIAMETER column available
        ant.dishDiameter().put(row,diameter);
@@ -2569,7 +2570,7 @@ void FITSIDItoMS1::fillAntennaTable()
      ant.type().put(row,"GROUND-BASED");
 
      // Do UVFITS-dependent position corrections:
-     // ROArrayColumn antXYZ(i) may need coord transform; do it in corXYZ:
+     // ArrayColumn antXYZ(i) may need coord transform; do it in corXYZ:
      Vector<Double> corXYZ=antXYZ(i);
 /***
      // If nec, rotate coordinates out of local VLA frame to ITRF
@@ -2619,36 +2620,36 @@ void FITSIDItoMS1::fillFeedTable() {
 
   //access fitsidi AN table
   Table anTab = oldfullTable("");
-  ROScalarColumn<Double> time(anTab, "TIME");
-  ROScalarColumn<Float> timeint;
-  ROScalarColumn<Double> timeintd;
+  ScalarColumn<Double> time(anTab, "TIME");
+  ScalarColumn<Float> timeint;
+  ScalarColumn<Double> timeintd;
   try{
     timeint.attach(anTab, "TIME_INTERVAL");
   }
-  catch(AipsError){
+  catch(AipsError&){
     timeintd.attach(anTab, "TIME_INTERVAL");
     *itsLog << LogIO::NORMAL << "Note: this ANTENNA table uses double precision for TIME_INTERVAL. Convention is single."
 	    << LogIO::POST;
   }    
-  ROScalarColumn<String> name(anTab, "ANNAME");
-  ROScalarColumn<Int> anNo(anTab, "ANTENNA_NO");
-  ROScalarColumn<Int> array(anTab, "ARRAY");
-  ROScalarColumn<Int> fqid(anTab, "FREQID");
-  ROScalarColumn<Int> digLev(anTab, "NO_LEVELS");
-  ROScalarColumn<String> poltya(anTab, "POLTYA");
-  ROScalarColumn<String> poltyb(anTab, "POLTYB");
+  ScalarColumn<String> name(anTab, "ANNAME");
+  ScalarColumn<Int> anNo(anTab, "ANTENNA_NO");
+  ScalarColumn<Int> array(anTab, "ARRAY");
+  ScalarColumn<Int> fqid(anTab, "FREQID");
+  ScalarColumn<Int> digLev(anTab, "NO_LEVELS");
+  ScalarColumn<String> poltya(anTab, "POLTYA");
+  ScalarColumn<String> poltyb(anTab, "POLTYB");
 
   // if the values for all bands are the same, POLAA, POLAB, POLCALA and POLCALB can be scalar
   Bool POLAisScalar = False;
-  ROArrayColumn<Float> polaa;
-  ROArrayColumn<Float> polab;
-  ROScalarColumn<Float> polaaS;
-  ROScalarColumn<Float> polabS;
+  ArrayColumn<Float> polaa;
+  ArrayColumn<Float> polab;
+  ScalarColumn<Float> polaaS;
+  ScalarColumn<Float> polabS;
   try{
     polaa.attach(anTab, "POLAA");
     polab.attach(anTab, "POLAB");
   }
-  catch(AipsError x){
+  catch(AipsError& x){
     polaaS.attach(anTab, "POLAA");
     polabS.attach(anTab, "POLAB");
     POLAisScalar = True;
@@ -2656,8 +2657,8 @@ void FITSIDItoMS1::fillFeedTable() {
 	    << endl << " i.e. using same value for all bands." << LogIO::POST;
   }
 
-  ROArrayColumn<Float> polcala;
-  ROArrayColumn<Float> polcalb;
+  ArrayColumn<Float> polcala;
+  ArrayColumn<Float> polcalb;
   if(nPcal > 0){
     if(anTab.tableDesc().isColumn("POLCALA") && anTab.tableDesc().isColumn("POLCALB")){
       polcala.attach(anTab, "POLCALA");
@@ -2668,7 +2669,7 @@ void FITSIDItoMS1::fillFeedTable() {
     }
   }
 
-  //  ROArrayColumn<Float> beamfwhm(anTab, "BEAMFWHM"); // this column is optional and there is presently
+  //  ArrayColumn<Float> beamfwhm(anTab, "BEAMFWHM"); // this column is optional and there is presently
                                                     // no place for this information in the MS
   Matrix<Complex> polResponse(2,2); 
   polResponse=0.; polResponse(0,0)=polResponse(1,1)=1.;
@@ -2710,15 +2711,16 @@ void FITSIDItoMS1::fillFeedTable() {
   // start/continue definition of antenna number to ID mapping in case this table is read before the MS Antenna table is filled
   for (Int inRow=0; inRow<nAnt; inRow++) {
     Int ii = anNo(inRow);
-    if(!antIdFromNo.isDefined(ii)){
-      antIdFromNo.define(ii, antIdFromNo.ndefined()); // append assuming uniqueness
-       *itsLog << LogIO::NORMAL << "   antenna_no " << ii << " -> antenna ID " << antIdFromNo(ii) << endl;
+    if(antIdFromNo.find(ii) == antIdFromNo.end()){
+      Int sz = antIdFromNo.size();
+      antIdFromNo[ii] = sz; // append assuming uniqueness
+       *itsLog << LogIO::NORMAL << "   antenna_no " << ii << " -> antenna ID " << antIdFromNo[ii] << endl;
     }
   }
 
   // record number of digitizer levels for each antenna
   for (Int inRow=0; inRow<nAnt; inRow++) {
-    digiLevels.define(antIdFromNo(anNo(inRow)),digLev(inRow));
+    digiLevels[antIdFromNo[anNo(inRow)]] = digLev(inRow);
     if (itsCorrelat == "DIFX" && digLev(inRow) != 2 && digLev(inRow) != 4) {
       *itsLog << LogIO::SEVERE << "unsupported number of digitizer levels for ANTENNA_NO " << anNo(inRow) << "."
 	      << endl << " Digital corrections and amplitude scaling will not be applied to"
@@ -2732,8 +2734,8 @@ void FITSIDItoMS1::fillFeedTable() {
     for (Int inIF=0; inIF<nIF; inIF++) { 
       Int k = inRow*nIF + inIF;
       ms_p.feed().addRow(); outRow++;
-      if(antIdFromNo.isDefined(anNo(inRow))){
-    	msfc.antennaId().put(outRow,antIdFromNo(anNo(inRow)));
+      if(antIdFromNo.find(anNo(inRow)) != antIdFromNo.end()){
+    	msfc.antennaId().put(outRow,antIdFromNo[anNo(inRow)]);
       }
       else{
     	*itsLog << LogIO::SEVERE << "Internal error: no mapping for ANTENNA_NO "
@@ -2823,7 +2825,7 @@ void FITSIDItoMS1::fillSpectralWindowTable()
   //Table fqTab=bt.fullTable("",Table::Scratch);
   Table fqTab=oldfullTable("");
   Int nRow=fqTab.nrow();
-  ROScalarColumn<Int> colFqid(fqTab,"FREQID");
+  ScalarColumn<Int> colFqid(fqTab,"FREQID");
   Matrix<Double> ifFreq(nIF_p,nRow);
   Matrix<Float> chWidth(nIF_p,nRow);
   Matrix<Float> totalBandwidth(nIF_p,nRow);
@@ -2838,10 +2840,10 @@ void FITSIDItoMS1::fillSpectralWindowTable()
   // The type of the column changes according to the number of entries
   if (nIF_p==1) {
 
-    ROScalarColumn<Double> colIFFreq(fqTab, "BANDFREQ");
-    ROScalarColumn<Float> colChWidth(fqTab, "CH_WIDTH"); 
-    ROScalarColumn<Float> colTotalBW(fqTab,"TOTAL_BANDWIDTH");
-    ROScalarColumn<Int> colSideBand(fqTab, "SIDEBAND");
+    ScalarColumn<Double> colIFFreq(fqTab, "BANDFREQ");
+    ScalarColumn<Float> colChWidth(fqTab, "CH_WIDTH"); 
+    ScalarColumn<Float> colTotalBW(fqTab,"TOTAL_BANDWIDTH");
+    ScalarColumn<Int> colSideBand(fqTab, "SIDEBAND");
 
     for (Int i=0; i<nRow; i++) {
       ifFreq(0,i)=colIFFreq(i);
@@ -2850,10 +2852,10 @@ void FITSIDItoMS1::fillSpectralWindowTable()
       sideband(0,i) = colSideBand(i);
     }
   } else {
-    ROArrayColumn<Double> colIFFreq(fqTab, "BANDFREQ");
-    ROArrayColumn<Float> colChWidth(fqTab, "CH_WIDTH");
-    ROArrayColumn<Float> colTotalBW(fqTab, "TOTAL_BANDWIDTH");
-    ROArrayColumn<Int> colSideBand(fqTab, "SIDEBAND");
+    ArrayColumn<Double> colIFFreq(fqTab, "BANDFREQ");
+    ArrayColumn<Float> colChWidth(fqTab, "CH_WIDTH");
+    ArrayColumn<Float> colTotalBW(fqTab, "TOTAL_BANDWIDTH");
+    ArrayColumn<Int> colSideBand(fqTab, "SIDEBAND");
 
     colIFFreq.getColumn(ifFreq);
     colChWidth.getColumn(chWidth);
@@ -2915,7 +2917,7 @@ void FITSIDItoMS1::fillFieldTable()
   Table suTab=oldfullTable("");
 
   //access the columns in source FITS-IDI subtable
-  ROScalarColumn<Int> id;
+  ScalarColumn<Int> id;
   if(suTab.tableDesc().isColumn("SOURCE_ID")){
     id.attach(suTab, "SOURCE_ID");
   }
@@ -2928,30 +2930,31 @@ void FITSIDItoMS1::fillFieldTable()
     throw(AipsError("No SOURCE_ID column in input SOURCE table."));
   }
 
-  ROScalarColumn<String> name(suTab,"SOURCE");
-  ROScalarColumn<Int> qual(suTab,"QUAL");
-  ROScalarColumn<String> code(suTab,"CALCODE");
-  ROScalarColumn<Int> fqid(suTab,"FREQID");
+  ScalarColumn<String> name(suTab,"SOURCE");
+  ScalarColumn<Int> qual(suTab,"QUAL");
+  ScalarColumn<String> code(suTab,"CALCODE");
+  ScalarColumn<Int> fqid(suTab,"FREQID");
 
   // if the values are the same for all bands, the flux, alpha, freqoff, sysvel, and restfreq columns can be scalar
-  ROArrayColumn<Float> iflux;
-  ROArrayColumn<Float> qflux;
-  ROArrayColumn<Float> uflux;
-  ROArrayColumn<Float> vflux;
-  ROArrayColumn<Float> alpha;
-  ROArrayColumn<Float> foffset;  
-  ROArrayColumn<Double> foffsetD;  
-  ROArrayColumn<Double> sysvel;
-  ROArrayColumn<Double> restfreq;
+  ArrayColumn<Float> iflux;
+  ArrayColumn<Float> qflux;
+  ArrayColumn<Float> uflux;
+  ArrayColumn<Float> vflux;
+  ArrayColumn<Float> alpha;
+  ArrayColumn<Float> foffset;  
+  ArrayColumn<Double> foffsetD;  
+  ArrayColumn<Double> sysvel;
+  ArrayColumn<Double> restfreq;
 
-  ROScalarColumn<Float> ifluxS;
-  ROScalarColumn<Float> qfluxS;
-  ROScalarColumn<Float> ufluxS;
-  ROScalarColumn<Float> vfluxS;
-  ROScalarColumn<Float> alphaS;
-  ROScalarColumn<Float> foffsetS;
-  ROScalarColumn<Double> sysvelS;
-  ROScalarColumn<Double> restfreqS;
+  ScalarColumn<Float> ifluxS;
+  ScalarColumn<Float> qfluxS;
+  ScalarColumn<Float> ufluxS;
+  ScalarColumn<Float> vfluxS;
+  ScalarColumn<Float> alphaS;
+  ScalarColumn<Float> foffsetS;
+  ScalarColumn<Double> foffsetSD;
+  ScalarColumn<Double> sysvelS;
+  ScalarColumn<Double> restfreqS;
 
   try{ // try array column first
     iflux.attach(suTab,"IFLUX"); // I (Jy)
@@ -2962,43 +2965,49 @@ void FITSIDItoMS1::fillFieldTable()
     try{
       foffset.attach(suTab,"FREQOFF"); // fq. offset  
     }
-    catch(AipsError x){
+    catch(AipsError& x){
       foffsetD.attach(suTab,"FREQOFF"); // fq. offset  
       *itsLog << LogIO::WARN << "Column FREQOFF is Double but should be Float." << LogIO::POST;
     }
     sysvel.attach(suTab,"SYSVEL"); // sys vel. (m/s)  
     restfreq.attach(suTab,"RESTFREQ"); // rest freq. (hz)  
   }
-  catch(AipsError x){
+  catch(AipsError& x){
     ifluxS.attach(suTab,"IFLUX"); // I (Jy)
     qfluxS.attach(suTab,"QFLUX"); // Q 
     ufluxS.attach(suTab,"UFLUX"); // U 
     vfluxS.attach(suTab,"VFLUX"); // V 
     alphaS.attach(suTab,"ALPHA"); // sp. index  
-    foffsetS.attach(suTab,"FREQOFF"); // fq. offset  
+    try{
+      foffsetS.attach(suTab,"FREQOFF"); // fq. offset  
+    }
+    catch(AipsError x){
+      foffsetSD.attach(suTab,"FREQOFF"); // fq. offset  
+      *itsLog << LogIO::WARN << "Column FREQOFF is Double but should be Float." << LogIO::POST;
+    }
     sysvelS.attach(suTab,"SYSVEL"); // sys vel. (m/s)  
     restfreqS.attach(suTab,"RESTFREQ"); // rest freq. (hz)  
     *itsLog << LogIO::WARN << "Treating ?FLUX, ALPHA, FREQOFF, SYSVEL, and RESTFREQ columns in input SOURCE table as scalar,"
 	    << endl << " i.e. using same value for all bands." << LogIO::POST;
   }      
 
-  ROScalarColumn<Double> ra(suTab,"RAEPO");    //degrees
-  ROScalarColumn<Double> dec(suTab,"DECEPO");  //degrees
-  ROScalarColumn<String> equinox;
-  ROScalarColumn<Double> epoch; //years, alternative for equinox
+  ScalarColumn<Double> ra(suTab,"RAEPO");    //degrees
+  ScalarColumn<Double> dec(suTab,"DECEPO");  //degrees
+  ScalarColumn<String> equinox;
+  ScalarColumn<Double> epoch; //years, alternative for equinox
   if(suTab.tableDesc().isColumn("EQUINOX")){
     equinox.attach(suTab,"EQUINOX"); // string
   }
   else if(suTab.tableDesc().isColumn("EPOCH")){
     epoch.attach(suTab,"EPOCH");
   }
-  ROScalarColumn<Double> raapp(suTab,"RAAPP");    //degrees
-  ROScalarColumn<Double> decapp(suTab,"DECAPP");  //degrees
-  ROScalarColumn<String> veltype(suTab,"VELTYP"); //   
-  ROScalarColumn<String> veldef(suTab,"VELDEF"); //   
-  ROScalarColumn<Double> pmra(suTab,"PMRA");   //deg/day
-  ROScalarColumn<Double> pmdec(suTab,"PMDEC"); //deg/day
-  ROScalarColumn<Float> pllx(suTab,"PARALLAX"); //arcsec 
+  ScalarColumn<Double> raapp(suTab,"RAAPP");    //degrees
+  ScalarColumn<Double> decapp(suTab,"DECAPP");  //degrees
+  ScalarColumn<String> veltype(suTab,"VELTYP"); //   
+  ScalarColumn<String> veldef(suTab,"VELDEF"); //   
+  ScalarColumn<Double> pmra(suTab,"PMRA");   //deg/day
+  ScalarColumn<Double> pmdec(suTab,"PMDEC"); //deg/day
+  ScalarColumn<Float> pllx(suTab,"PARALLAX"); //arcsec 
 
   //if (Int(suTab.nrow())<nField) {
   //  *itsLog << LogIO::NORMAL
@@ -3151,13 +3160,13 @@ Bool FITSIDItoMS1::fillSysCalTable()
   Bool TSYSisScalar=False;
 
   Table tyTab = oldfullTable("");
-  ROScalarColumn<Double> time(tyTab, "TIME");
-  ROScalarColumn<Float> timeint(tyTab, "TIME_INTERVAL");
-  ROScalarColumn<Int> anNo(tyTab, "ANTENNA_NO");
-  ROArrayColumn<Float> tsys_1;
-  ROArrayColumn<Float> tsys_2;
-  ROScalarColumn<Float> tsys_1S;
-  ROScalarColumn<Float> tsys_2S;
+  ScalarColumn<Double> time(tyTab, "TIME");
+  ScalarColumn<Float> timeint(tyTab, "TIME_INTERVAL");
+  ScalarColumn<Int> anNo(tyTab, "ANTENNA_NO");
+  ArrayColumn<Float> tsys_1;
+  ArrayColumn<Float> tsys_2;
+  ScalarColumn<Float> tsys_1S;
+  ScalarColumn<Float> tsys_2S;
   try{
     tsys_1.attach(tyTab, "TSYS_1");
     if(tyTab.tableDesc().isColumn("TSYS_2")) {
@@ -3165,7 +3174,7 @@ Bool FITSIDItoMS1::fillSysCalTable()
       dualPol=True;
     }
   }
-  catch(AipsError){
+  catch(AipsError&){
     tsys_1S.attach(tyTab, "TSYS_1");
     if(tyTab.tableDesc().isColumn("TSYS_2")) {
       tsys_2S.attach(tyTab, "TSYS_2"); // this column is optional
@@ -3181,8 +3190,8 @@ Bool FITSIDItoMS1::fillSysCalTable()
   for (Int inRow=0; inRow<nVal; inRow++) {
     for (Int inIF=0; inIF<nIF; inIF++) {
       ms_p.sysCal().addRow(); outRow++;
-      if (antIdFromNo.isDefined(anNo(inRow))) {
-	msSysCal.antennaId().put(outRow, antIdFromNo(anNo(inRow)));
+      if (antIdFromNo.find(anNo(inRow)) != antIdFromNo.end()) {
+	msSysCal.antennaId().put(outRow, antIdFromNo[anNo(inRow)]);
       } else {
     	*itsLog << LogIO::SEVERE << "Internal error: no mapping for ANTENNA_NO "
 				<< anNo(inRow) << LogIO::EXCEPTION;
@@ -3239,23 +3248,23 @@ Bool FITSIDItoMS1::fillFlagCmdTable()
   Int nVal=nrows();
 
   Table flagTab = oldfullTable("");
-  ROScalarColumn<Int> srcid(flagTab, "SOURCE_ID");
-  ROScalarColumn<Int> array(flagTab, "ARRAY");
-  ROArrayColumn<Int> ants(flagTab, "ANTS");
-  ROScalarColumn<Int> fqid(flagTab, "FREQID");
-  ROArrayColumn<Float> timerang(flagTab, "TIMERANG");
+  ScalarColumn<Int> srcid(flagTab, "SOURCE_ID");
+  ScalarColumn<Int> array(flagTab, "ARRAY");
+  ArrayColumn<Int> ants(flagTab, "ANTS");
+  ScalarColumn<Int> fqid(flagTab, "FREQID");
+  ArrayColumn<Float> timerang(flagTab, "TIMERANG");
   Bool BANDSisScalar = False;
-  ROArrayColumn<Int> bands;
-  ROScalarColumn<Int> bandsS;
-  ROArrayColumn<Int> chans(flagTab, "CHANS");
-  ROArrayColumn<Int> pflags(flagTab, "PFLAGS");
-  ROScalarColumn<String> reason(flagTab, "REASON");
-  ROScalarColumn<Int> severity(flagTab, "SEVERITY");
+  ArrayColumn<Int> bands;
+  ScalarColumn<Int> bandsS;
+  ArrayColumn<Int> chans(flagTab, "CHANS");
+  ArrayColumn<Int> pflags(flagTab, "PFLAGS");
+  ScalarColumn<String> reason(flagTab, "REASON");
+  ScalarColumn<Int> severity(flagTab, "SEVERITY");
 
   try {
     bands.attach(flagTab, "BANDS");
   }
-  catch(AipsError x){
+  catch(AipsError& x){
     bandsS.attach(flagTab, "BANDS");
     BANDSisScalar = True;
   }
@@ -3277,11 +3286,11 @@ Bool FITSIDItoMS1::fillFlagCmdTable()
     // Check antenna numbers; fail if there are inconsistencies.
     Int ant1 = ants(inRow)(IPosition(1, 0));
     Int ant2 = ants(inRow)(IPosition(1, 1));
-    if (ant1 != 0 && !antIdFromNo.isDefined(ant1)) {
+    if (ant1 != 0 && antIdFromNo.find(ant1) == antIdFromNo.end()) {
     	*itsLog << LogIO::SEVERE << "No mapping for antenna "
 				<< ant1 << LogIO::EXCEPTION;
     }
-    if (ant2 != 0 && !antIdFromNo.isDefined(ant2)) {
+    if (ant2 != 0 && antIdFromNo.find(ant2) == antIdFromNo.end()) {
     	*itsLog << LogIO::SEVERE << "No mapping for antenna "
 				<< ant2 << LogIO::EXCEPTION;
     }
@@ -3309,8 +3318,8 @@ Bool FITSIDItoMS1::fillFlagCmdTable()
     ostringstream cmd;
 
     // antenna selection
-    ant1 = (ant1 == 0) ? -1 : antIdFromNo(ant1);
-    ant2 = (ant2 == 0) ? -1 : antIdFromNo(ant2);
+    ant1 = (ant1 == 0) ? -1 : antIdFromNo[ant1];
+    ant2 = (ant2 == 0) ? -1 : antIdFromNo[ant2];
     if (ant1 != -1) {
       cmd << "antenna='" << ant1;
       if (ant2 != -1)
@@ -3387,26 +3396,26 @@ Bool FITSIDItoMS1::fillWeatherTable()
   Int nVal=nrows();
 
   Table wxTab = oldfullTable("");
-  ROScalarColumn<Double> time(wxTab, "TIME");
-  ROScalarColumn<Float> timeint(wxTab, "TIME_INTERVAL");
-  ROScalarColumn<Int> anNo(wxTab, "ANTENNA_NO");
-  ROScalarColumn<Float> temperature(wxTab, "TEMPERATURE");
-  ROScalarColumn<Float> pressure(wxTab, "PRESSURE");
-  ROScalarColumn<Float> dewpoint(wxTab, "DEWPOINT");
-  ROScalarColumn<Float> wind_velocity(wxTab, "WIND_VELOCITY");
-  ROScalarColumn<Float> wind_direction(wxTab, "WIND_DIRECTION");
-  ROScalarColumn<Float> wvr_h2o;
+  ScalarColumn<Double> time(wxTab, "TIME");
+  ScalarColumn<Float> timeint(wxTab, "TIME_INTERVAL");
+  ScalarColumn<Int> anNo(wxTab, "ANTENNA_NO");
+  ScalarColumn<Float> temperature(wxTab, "TEMPERATURE");
+  ScalarColumn<Float> pressure(wxTab, "PRESSURE");
+  ScalarColumn<Float> dewpoint(wxTab, "DEWPOINT");
+  ScalarColumn<Float> wind_velocity(wxTab, "WIND_VELOCITY");
+  ScalarColumn<Float> wind_direction(wxTab, "WIND_DIRECTION");
+  ScalarColumn<Float> wvr_h2o;
   if(weather_hasWater_p)
     wvr_h2o.attach(wxTab, "WVR_H2O");
-  ROScalarColumn<Float> ionos_electron;
+  ScalarColumn<Float> ionos_electron;
   if(weather_hasElectron_p)
     wvr_h2o.attach(wxTab, "IONOS_ELECTRON");
 
   Int outRow=-1;
   for (Int inRow=0; inRow<nVal; inRow++) {
       ms_p.weather().addRow(); outRow++;
-      if (antIdFromNo.isDefined(anNo(inRow))) {
-	msWeather.antennaId().put(outRow, antIdFromNo(anNo(inRow)));
+      if (antIdFromNo.find(anNo(inRow)) != antIdFromNo.end()) {
+	msWeather.antennaId().put(outRow, antIdFromNo[anNo(inRow)]);
       } else {
     	*itsLog << LogIO::SEVERE << "Internal error: no mapping for ANTENNA_NO "
 				<< anNo(inRow) << LogIO::EXCEPTION;

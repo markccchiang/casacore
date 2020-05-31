@@ -37,10 +37,10 @@
 namespace casacore { //# NAMESPACE CASACORE - BEGIN
 
 class TableDesc;
-class ROMSMainColumns;
-class ROMSDataDescColumns;
-class ROMSSpWindowColumns;
-class ROMSPolarizationColumns;
+class MSMainColumns;
+class MSDataDescColumns;
+class MSSpWindowColumns;
+class MSPolarizationColumns;
 class MSAntenna;
 class MSDataDescription;
 class MSFeed;
@@ -57,9 +57,6 @@ template <class T> class Block;
 // </reviewed>
 
 // <prerequisite>
-//   <li> SomeClass
-//   <li> SomeOtherClass
-//   <li> some concept
 // </prerequisite>
 //
 // <etymology>
@@ -74,20 +71,7 @@ template <class T> class Block;
 // <motivation>
 // </motivation>
 //
-// <templating arg=T>
-//    <li>
-//    <li>
-// </templating>
-//
-// <thrown>
-//    <li>
-//    <li>
-// </thrown>
-//
 // <todo asof="yyyy/mm/dd">
-//   <li> add this feature
-//   <li> fix this bug
-//   <li> start discussion of this possible extension
 // </todo>
 
 class MSConcat: public MSColumns
@@ -100,33 +84,33 @@ public:
 		     const String& obsidAndScanTableName="");
 
   void concatenate(const MeasurementSet& otherMS,
-		   const uInt handling=0,   // 0 (default): complete concat of all tables
-                                            // 1 : don't concatenate the MAIN table
-                                            // 2 : don't concatenate the POINTING table
-                                            // 3 : neither concat MAIN nor POINTING table
-                   const String& destMSName=""); // support for virtual concat
+		   const uInt handling=0,   //# 0 (default): complete concat of all tables
+                                            //# 1 : don't concatenate the MAIN table
+                                            //# 2 : don't concatenate the POINTING table
+                                            //# 3 : neither concat MAIN nor POINTING table
+                   const String& destMSName=""); //# support for virtual concat
 
   void setTolerance(Quantum<Double>& freqTol, Quantum<Double>& dirTol); 
   void setWeightScale(const Float weightScale); 
-  void setRespectForFieldName(const Bool respectFieldName); // If True, fields of same direction are not merged
-                                                            // if their name is different
+  void setRespectForFieldName(const Bool respectFieldName); //# If True, fields of same direction are not merged
+                                                            //# if their name is different
 
 private:
   MSConcat();
   static IPosition isFixedShape(const TableDesc& td);
-  static IPosition getShape(const ROMSDataDescColumns& ddCols, 
-			    const ROMSSpWindowColumns& spwCols, 
-			    const ROMSPolarizationColumns& polCols, 
+  static IPosition getShape(const MSDataDescColumns& ddCols, 
+			    const MSSpWindowColumns& spwCols, 
+			    const MSPolarizationColumns& polCols, 
 			    uInt whichShape);
   void checkShape(const IPosition& otherShape) const;
-  void checkCategories(const ROMSMainColumns& otherCols) const;
-  Bool checkEphIdInField(const ROMSFieldColumns& otherFldCol) const;
+  void checkCategories(const MSMainColumns& otherCols) const;
+  Bool checkEphIdInField(const MSFieldColumns& otherFldCol) const;
   Bool copyPointing(const MSPointing& otherPoint, const Block<uInt>& newAntIndices);
   Bool copyPointingB(MSPointing& otherPoint, const Block<uInt>& newAntIndices);
   Bool copySysCal(const MSSysCal& otherSysCal, const Block<uInt>& newAndIndices);
   Bool copyWeather(const MSWeather& otherWeather, const Block<uInt>& newAndIndices);
   Int copyObservation(const MSObservation& otherObs, const Bool remRedunObsId=True);
-                             // by default remove redundant observation table rows
+                             //# by default remove redundant observation table rows
   Block<uInt> copyAntennaAndFeed(const MSAntenna& otherAnt,
 				 const MSFeed& otherFeed);
   Block<uInt> copyState(const MSState& otherState);
@@ -155,13 +139,13 @@ private:
   Float itsWeightScale;
   Bool itsRespectForFieldName;
   Vector<Bool> itsChanReversed;
-  SimpleOrderedMap <Int, Int> newSourceIndex_p;
-  SimpleOrderedMap <Int, Int> newSourceIndex2_p;
-  SimpleOrderedMap <Int, Int> newSPWIndex_p;
-  SimpleOrderedMap <Int, Int> newObsIndexA_p;
-  SimpleOrderedMap <Int, Int> newObsIndexB_p;
-  SimpleOrderedMap <Int, Int> otherObsIdsWithCounterpart_p;
-  SimpleOrderedMap <Int, Int> solSystObjects_p;
+  std::map <Int, Int> newSourceIndex_p;
+  std::map <Int, Int> newSourceIndex2_p;
+  std::map <Int, Int> newSPWIndex_p;
+  std::map <Int, Int> newObsIndexA_p;
+  std::map <Int, Int> newObsIndexB_p;
+  std::map <Int, Int> otherObsIdsWithCounterpart_p;
+  std::map <Int, Int> solSystObjects_p;
 
   Bool doSource_p;
   Bool doSource2_p;
@@ -172,7 +156,7 @@ private:
 };
 
 template<class T>
-Bool areEQ(const ROScalarColumn<T>& col, uInt row_i, uInt row_j) 
+Bool areEQ(const ScalarColumn<T>& col, uInt row_i, uInt row_j) 
 {
   T value_i, value_j;
   col.get(row_i, value_i);
@@ -181,7 +165,7 @@ Bool areEQ(const ROScalarColumn<T>& col, uInt row_i, uInt row_j)
 }
 
 template<class T>
-Bool areEQ(const ROArrayColumn<T>& col, uInt row_i, uInt row_j) 
+Bool areEQ(const ArrayColumn<T>& col, uInt row_i, uInt row_j) 
 {
   Bool rval(False);
   Array<T> arr_i;
@@ -198,7 +182,12 @@ Bool areEQ(const ROArrayColumn<T>& col, uInt row_i, uInt row_j)
   return rval;
 }
 
-
+inline Int getMapValue (const std::map<Int,Int>& m, Int k)
+{
+  auto iter = m.find(k);
+  return (iter == m.end()  ?  -1 : iter->second);
+}
+  
 
 } //# NAMESPACE CASACORE - END
 

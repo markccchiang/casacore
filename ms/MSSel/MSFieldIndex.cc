@@ -45,7 +45,7 @@ namespace casacore { //# NAMESPACE CASACORE - BEGIN
     // Input:
     //    field           const MSField&           Input MSField object
     // Output to private data:
-    //    msFieldCols_p   ROMSFieldColumns         MSField columns accessor
+    //    msFieldCols_p   MSFieldColumns         MSField columns accessor
     //    fieldIds_p      Vector<Int>              Field id's
     //    nrows_p         Int                      Number of rows
     //
@@ -325,6 +325,24 @@ namespace casacore { //# NAMESPACE CASACORE - BEGIN
        !msFieldCols_p.flagRow().getColumn());
     MaskedArray<Int> maskFieldId(fieldIds_p, maskArray);
     return maskFieldId.getCompressedArray();
+  }
+  //-------------------------------------------------------------------------
+  // Input list modifier. Elements in the list greater than the number
+  // of fields are converted to string and matched against field
+  // names.  If a match is found, the element is replaced with the
+  // matched name ID (sub-table row number).  Elements less than the
+  // number of fields are left unmodified.
+  void MSFieldIndex::matchIdAgainstNames(Vector<Int>& list)
+  {
+    for (unsigned int i=0;i<list.nelements();i++)
+      if ((unsigned int)list[i] >= fieldIds_p.nelements())
+	{
+	  std::stringstream ss;
+	  ss << list[i];
+	  Vector<int> id=matchFieldName(ss.str());
+	  if (id.nelements() > 0)
+	    list[i]=id[0];
+	}
   }
   //-------------------------------------------------------------------------
   Vector<Int> MSFieldIndex::validateIndices(const Vector<Int>& ids)

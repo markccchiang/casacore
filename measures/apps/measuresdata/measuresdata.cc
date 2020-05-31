@@ -958,7 +958,7 @@ Int last_mjd(const Table *tab) {
   uInt n = tab->nrow();
   Double mjd;
   if (n<1) mjd = 0;
-  else ROScalarColumn<Double>(*tab, "MJD").get(n-1, mjd);
+  else ScalarColumn<Double>(*tab, "MJD").get(n-1, mjd);
   return Int(mjd); 
 }
 
@@ -1809,7 +1809,7 @@ int main (int argc, const char** argv) {
     // Create the full properties
     makeProperties();
 
-  } catch (AipsError x) {
+  } catch (AipsError& x) {
     cout << x.getMesg() << endl;
     exit(1);
   } 
@@ -1854,7 +1854,7 @@ int main (int argc, const char** argv) {
 // Finish
 //*************************************************************************//
 
-  } catch (AipsError x) {
+  } catch (AipsError& x) {
     cout << x.getMesg() << endl;
     exit(1);
   } 

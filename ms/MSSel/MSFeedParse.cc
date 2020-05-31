@@ -39,7 +39,7 @@ namespace casacore { //# NAMESPACE CASACORE - BEGIN
  // Global pointer to the parser object
   MSFeedParse* MSFeedParse::thisMSFParser = 0;
   TableExprNode MSFeedParse::column1AsTEN_p, MSFeedParse::column2AsTEN_p;
-  MSSelectionErrorHandler* MSFeedParse::thisMSFErrorHandler = 0;
+  CountedPtr<MSSelectionErrorHandler> MSFeedParse::thisMSFErrorHandler;
   
   //# Constructor
   MSFeedParse::MSFeedParse ()
@@ -124,7 +124,7 @@ namespace casacore { //# NAMESPACE CASACORE - BEGIN
       }
     {
       // cannot use indgen for this, rows of feed table may have same feed ID
-      ROMSFeedColumns* msfc = new ROMSFeedColumns(subTable());
+      MSFeedColumns* msfc = new MSFeedColumns(subTable());
       Vector<Int> f2 = msfc->feedId().getColumn();
       delete msfc;
       /*
